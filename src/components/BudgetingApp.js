@@ -1,5 +1,5 @@
 // components/BudgetingApp.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 function BudgetingApp() {
@@ -11,14 +11,42 @@ function BudgetingApp() {
   const [expenses, setExpenses] = useState({});
   const [notes, setNotes] = useState({});
   const [logs, setLogs] = useState([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Load data from localStorage on component mount
+  useEffect(() => {
+    const savedSalary = localStorage.getItem('totalSalary');
+    const savedSpendings = localStorage.getItem('spendings');
+    const savedLogs = localStorage.getItem('logs');
+    
+    if (savedSalary) setTotalSalary(Number(savedSalary));
+    if (savedSpendings) setSpendings(JSON.parse(savedSpendings));
+    if (savedLogs) {
+      const parsedLogs = JSON.parse(savedLogs);
+      setLogs(parsedLogs);
+    }
+    
+    // Mark initial load as complete
+    setIsInitialLoad(false);
+  }, []);
+
+  // Save logs to localStorage whenever logs change (but not during initial load)
+  useEffect(() => {
+    if (!isInitialLoad) {
+      localStorage.setItem('logs', JSON.stringify(logs));
+    }
+  }, [logs, isInitialLoad]);
 
   const handleSalarySubmit = () => {
     if (salary > 0) {
-      setTotalSalary(Number(salary));
+      const newSalary = Number(salary);
+      setTotalSalary(newSalary);
+      localStorage.setItem('totalSalary', newSalary.toString());
       setSalary('');
       setSpendings({});
       setExpenses({});
-      setLogs([]);
+      // Don't clear logs when setting salary - keep existing logs
+      localStorage.removeItem('spendings');
     }
   };
 
@@ -33,11 +61,16 @@ function BudgetingApp() {
       alert("Allocating this will exceed your salary!");
       return;
     }
-    setSpendings({
+    const newSpendings = {
       ...spendings,
       [category]: { allocated: alloc, spent: 0 }
-    });
-    setLogs([...logs, { action: `Category '${category}' allocated ₹${alloc}`, time: new Date().toLocaleString() }]);
+    };
+    setSpendings(newSpendings);
+    localStorage.setItem('spendings', JSON.stringify(newSpendings));
+    
+    const newLogs = [...logs, { action: `Category '${category}' allocated ₹${alloc}`, time: new Date().toLocaleString() }];
+    setLogs(newLogs);
+    
     setCategory('');
     setAllocation('');
   };
@@ -54,20 +87,25 @@ function BudgetingApp() {
       alert("You are exceeding the allocation for this category!");
       return;
     }
-    setSpendings({
+    const newSpendings = {
       ...spendings,
       [cat]: {
         ...categoryData,
         spent: categoryData.spent + spentAmount
       }
-    });
-    setLogs([
+    };
+    setSpendings(newSpendings);
+    localStorage.setItem('spendings', JSON.stringify(newSpendings));
+    
+    const newLogs = [
       ...logs,
       {
         action: `Spent ₹${spentAmount} on '${cat}'${note ? ` - ${note}` : ''}`,
         time: new Date().toLocaleString()
       }
-    ]);
+    ];
+    setLogs(newLogs);
+    
     setExpenses({ ...expenses, [cat]: '' });
     setNotes({ ...notes, [cat]: '' });
   };
